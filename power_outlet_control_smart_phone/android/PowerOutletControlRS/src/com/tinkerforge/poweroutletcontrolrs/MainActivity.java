@@ -1,4 +1,4 @@
-package com.tinkerforge.poweroutletcontrol;
+package com.tinkerforge.poweroutletcontrolrs;
 
 import android.os.Bundle;
 import android.app.Activity;
@@ -13,7 +13,7 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
 
-import com.tinkerforge.BrickletIndustrialQuadRelay;
+import com.tinkerforge.BrickletRemoteSwitch;
 import com.tinkerforge.IPConnection;
 import com.tinkerforge.TinkerforgeException;
 import com.tinkerforge.NotConnectedException;
@@ -22,7 +22,7 @@ import com.tinkerforge.AlreadyConnectedException;
 public class MainActivity extends Activity {
 	final Context context = this;
 	private IPConnection ipcon = null;
-	private BrickletIndustrialQuadRelay relay = null;
+	private BrickletRemoteSwitch relay = null;
 	private EditText host;
 	private EditText port;
 	private EditText uid;
@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
 			ipcon = new IPConnection();
 
 			try {
-				relay = new BrickletIndustrialQuadRelay(currentUID, ipcon);
+				relay = new BrickletRemoteSwitch(currentUID, ipcon);
 			} catch(IllegalArgumentException e) {
 				return ConnectResult.NO_DEVICE;
 			}
@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
 			}
 
 			try {
-				if (relay.getIdentity().deviceIdentifier != BrickletIndustrialQuadRelay.DEVICE_IDENTIFIER) {
+				if (relay.getIdentity().deviceIdentifier != BrickletRemoteSwitch.DEVICE_IDENTIFIER) {
 					ipcon.disconnect();
 					return ConnectResult.NO_DEVICE;
 				}
@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
 				if (result == ConnectResult.NO_CONNECTION) {
 					builder.setMessage("Could not connect to " + currentHost + ":" + currentPort);
 				} else { // ConnectResult.NO_DEVICE
-					builder.setMessage("Could not find Industrial Quad Relay Bricklet [" + currentUID + "]");
+					builder.setMessage("Could not find Remote Switch Bricklet [" + currentUID + "]");
 				}
 
 				builder.setCancelable(false);
@@ -191,17 +191,36 @@ public class MainActivity extends Activity {
 	}
 
 	class TriggerAsyncTask extends AsyncTask<Void, Void, Void> {
-		private int selectionMask;
 		
-		TriggerAsyncTask(int selectionMask) {
-			this.selectionMask = selectionMask;
+		private boolean onoff;
+		private short rcvcode;
+		
+		TriggerAsyncTask(short rcvcode, boolean onoff) {
+			this.rcvcode = rcvcode;
+			this.onoff = onoff;
 		}
 		
 		protected Void doInBackground(Void... params) {
-			try {
-				relay.setMonoflop(selectionMask, 15, 500);
-			} catch (TinkerforgeException e) {
+
+			
+		  // In this version the housecode 31 is used
+			if (onoff) {
+				try{
+					relay.switchSocketA((short)31, rcvcode, BrickletRemoteSwitch.SWITCH_TO_ON);
+					}catch (TinkerforgeException e){
+						return null;
+					}
+					 
 			}
+			else {
+				try{
+					relay.switchSocketA((short)31, rcvcode, BrickletRemoteSwitch.SWITCH_TO_OFF);
+					}catch (TinkerforgeException e){
+						return null;
+					}
+					
+			}
+			
 
 			return null;
 		}
@@ -220,14 +239,19 @@ public class MainActivity extends Activity {
 	}
 
 	class TriggerClickListener implements OnClickListener {
-		private int selectionMask;
+		private short rcvcode;
+		private boolean onoff;
 		
-		TriggerClickListener(int selectionMask) {
-			this.selectionMask = selectionMask;
+		TriggerClickListener(short rcvcode, boolean onoff) {
+			this.rcvcode = rcvcode;
+			this.onoff = onoff;
+		
 		}
 		
 		public void onClick(View v) {
-			new TriggerAsyncTask(selectionMask).execute();
+			
+			
+			new TriggerAsyncTask(rcvcode,onoff).execute();
 		}
 	}
 
@@ -251,10 +275,11 @@ public class MainActivity extends Activity {
 		uid.setText(settings.getString("uid", uid.getText().toString()));
 
 		connect.setOnClickListener(new ConnectClickListener());
-		a_on.setOnClickListener(new TriggerClickListener((1 << 0) | (1 << 2)));
-		a_off.setOnClickListener(new TriggerClickListener((1 << 0) | (1 << 3)));
-		b_on.setOnClickListener(new TriggerClickListener((1 << 1) | (1 << 2)));
-		b_off.setOnClickListener(new TriggerClickListener((1 << 1) | (1 << 3)));
+		// change the receiver code here, currently used 4 and 8
+		a_on.setOnClickListener(new TriggerClickListener((short)4,true));
+		a_off.setOnClickListener(new TriggerClickListener((short)4,false));
+		b_on.setOnClickListener(new TriggerClickListener((short)8,true));
+		b_off.setOnClickListener(new TriggerClickListener((short)8,false));
 		
 		a_on.setEnabled(false);
 		a_off.setEnabled(false);
